@@ -44,6 +44,11 @@ func newModel() model {
 	}
 }
 
+import (
+	"fmt"
+	"math/rand"
+)
+
 var packages = []string{
 	"vegeutils",
 	"libgardening",

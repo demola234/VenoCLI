@@ -43,6 +43,12 @@ func newModel() model {
 		progress: p,
 	}
 }
+package main
+
+import (
+	"fmt"
+	"math/rand"
+)
 
 var packages = []string{
 	"vegeutils",
