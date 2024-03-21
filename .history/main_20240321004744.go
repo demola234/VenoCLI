@@ -16,7 +16,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -31,18 +30,6 @@ func GetVideo(videoUrl string, ctx context.Context) (*fileutils.Video, error) {
 		return nil, fmt.Errorf("extractVideoID failed: %w", err)
 	}
 
-	videoPath := fmt.Sprintf("%s.mp4", "title")
-
-	output, err := os.Create(videoPath)
-	if err != nil {
-		return nil, fmt.Errorf("GoTube: Failed to create video file: %v", err)
-	}
-	defer output.Close()
-
-	// Create some random input data.
-	src := bytes.NewBufferString(strings.Repeat("Some random input data", 1000))
-	_ = &PassThru{Reader: src}
-
 	body, err := videoDataByInnertube(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("videoDataByInnertube failed: %w", err)
@@ -55,8 +42,6 @@ func GetVideo(videoUrl string, ctx context.Context) (*fileutils.Video, error) {
 	if err = v.ParseVideoInfo(body); err == nil {
 		return &v, nil
 	}
-
-	var bodies io.Reader
 
 	if errse.Is(err, errors.ErrNotPlayableInEmbed) {
 		html, err := httpGetBodyBytes(ctx, "https://www.youtube.com/watch?v="+id+"&bpctr=9999999999&has_verified=1")
@@ -71,27 +56,54 @@ func GetVideo(videoUrl string, ctx context.Context) (*fileutils.Video, error) {
 		return &v, nil
 	}
 
-	// wait for download to complete
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
+	ch := make(chan error)
 
 	go func() {
-		defer wg.Done()
+		eg, ctx := errgroup.WithContext(context.Background())
 
-		err := downloadVideoData
-		(ctx, id, output)
+		eg.Go(func() error {
+			_, err := downloading(v.Formats[0].URL, v.Title)
+			if err != nil {
+				return fmt.Errorf("downloading failed: %w", err)
+			}
 
-		}()
+			output, err := os.Create(v.Title + ".mp4")
+			if err!= nil {
+				return fmt.Errorf("failed to create output file: %w", err)
+			}
 
-		if err!= nil {
-			return nil, fmt.Errorf("failed to download video data: %w", err)
-		}
+			_, err = io.Copy(output, body)
+			err = output.Close()
 
-		}()
+			if err != nil {
+				return fmt.Errorf("failed to close output file: %w", err)
+				}
 
-		// Download video data
-		
+				
+				err = body.Close()
+				if err!= nil {
+					return fmt.Errorf("failed to close body: %w", err)
+				}
+
+				return nil
+
+				// Close the response body regardless of whether the Copy failed
+				// or not.
+		resp.Body.Close()
+				
+			
+			
+
+
+		ch <- err
+
+	}()
+
+	err = <-ch
+
+	if err != nil {
+		return nil, fmt.Errorf("downloading failed: %w", err)
+	}
 
 	return &v, err
 }
@@ -225,6 +237,26 @@ func httpDo(req *http.Request) (*http.Response, error) {
 type PassThru struct {
 	io.Reader
 	total int64 // Total # of bytes transferred
+}
+
+func downloading(url string, title string) (int64, error) {
+	videoPath := fmt.Sprintf("%s.mp4", title)
+
+	var body io.Reader
+
+	output, err := os.Create(videoPath)
+	if err != nil {
+		return 0, fmt.Errorf("GoTube: Failed to create video file: %v", err)
+	}
+	defer output.Close()
+
+	// Create some random input data.
+	src := bytes.NewBufferString(strings.Repeat("Some random input data", 1000))
+	_ = &PassThru{Reader: src}
+
+	sec, err := io.Copy(output, body)
+
+	return sec, nil
 }
 
 func download(URLs []string) error {

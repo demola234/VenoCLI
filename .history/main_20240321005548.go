@@ -74,24 +74,12 @@ func GetVideo(videoUrl string, ctx context.Context) (*fileutils.Video, error) {
 	// wait for download to complete
 
 	wg := sync.WaitGroup{}
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	_, err = io.Copy(output, bodies)
 
-		err := downloadVideoData
-		(ctx, id, output)
-
-		}()
-
-		if err!= nil {
-			return nil, fmt.Errorf("failed to download video data: %w", err)
-		}
-
-		}()
-
-		// Download video data
-		
+	if err != nil {
+		return nil, fmt.Errorf("downloading failed: %w", err)
+	}
 
 	return &v, err
 }

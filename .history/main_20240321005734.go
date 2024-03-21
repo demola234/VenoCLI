@@ -88,9 +88,6 @@ func GetVideo(videoUrl string, ctx context.Context) (*fileutils.Video, error) {
 			return nil, fmt.Errorf("failed to download video data: %w", err)
 		}
 
-		}()
-
-		// Download video data
 		
 
 	return &v, err

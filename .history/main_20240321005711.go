@@ -77,20 +77,6 @@ func GetVideo(videoUrl string, ctx context.Context) (*fileutils.Video, error) {
 	wg.Add(1)
 
 	go func() {
-		defer wg.Done()
-
-		err := downloadVideoData
-		(ctx, id, output)
-
-		}()
-
-		if err!= nil {
-			return nil, fmt.Errorf("failed to download video data: %w", err)
-		}
-
-		}()
-
-		// Download video data
 		
 
 	return &v, err

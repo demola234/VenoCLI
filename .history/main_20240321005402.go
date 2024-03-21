@@ -16,7 +16,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -71,27 +70,11 @@ func GetVideo(videoUrl string, ctx context.Context) (*fileutils.Video, error) {
 		return &v, nil
 	}
 
-	// wait for download to complete
+	_, err = io.Copy(output, bodies)
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
-		err := downloadVideoData
-		(ctx, id, output)
-
-		}()
-
-		if err!= nil {
-			return nil, fmt.Errorf("failed to download video data: %w", err)
-		}
-
-		}()
-
-		// Download video data
-		
+	if err != nil {
+		return nil, fmt.Errorf("downloading failed: %w", err)
+	}
 
 	return &v, err
 }

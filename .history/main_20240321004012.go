@@ -16,10 +16,11 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 
 	"golang.org/x/sync/errgroup"
 )
+
+
 
 func downloadVideo(url string) (*fileutils.Video, error) {
 	return GetVideo(url, context.Background())
@@ -30,18 +31,6 @@ func GetVideo(videoUrl string, ctx context.Context) (*fileutils.Video, error) {
 	if err != nil {
 		return nil, fmt.Errorf("extractVideoID failed: %w", err)
 	}
-
-	videoPath := fmt.Sprintf("%s.mp4", "title")
-
-	output, err := os.Create(videoPath)
-	if err != nil {
-		return nil, fmt.Errorf("GoTube: Failed to create video file: %v", err)
-	}
-	defer output.Close()
-
-	// Create some random input data.
-	src := bytes.NewBufferString(strings.Repeat("Some random input data", 1000))
-	_ = &PassThru{Reader: src}
 
 	body, err := videoDataByInnertube(ctx, id)
 	if err != nil {
@@ -56,8 +45,6 @@ func GetVideo(videoUrl string, ctx context.Context) (*fileutils.Video, error) {
 		return &v, nil
 	}
 
-	var bodies io.Reader
-
 	if errse.Is(err, errors.ErrNotPlayableInEmbed) {
 		html, err := httpGetBodyBytes(ctx, "https://www.youtube.com/watch?v="+id+"&bpctr=9999999999&has_verified=1")
 		if err != nil {
@@ -71,27 +58,16 @@ func GetVideo(videoUrl string, ctx context.Context) (*fileutils.Video, error) {
 		return &v, nil
 	}
 
-	// wait for download to complete
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-
 	go func() {
-		defer wg.Done()
-
-		err := downloadVideoData
-		(ctx, id, output)
-
-		}()
-
-		if err!= nil {
-			return nil, fmt.Errorf("failed to download video data: %w", err)
+		if err :=downloading(v.Fo); err != nil {
+			log.Printf("download failed: %v", err)
 		}
+	}() 
 
-		}()
 
-		// Download video data
-		
+	if err != nil {
+		return nil, fmt.Errorf("downloading failed: %w", err)
+	}
 
 	return &v, err
 }
@@ -225,6 +201,26 @@ func httpDo(req *http.Request) (*http.Response, error) {
 type PassThru struct {
 	io.Reader
 	total int64 // Total # of bytes transferred
+}
+
+func downloading(url string, title string) error {
+	videoPath := fmt.Sprintf("%s.mp4", title)
+
+	var body io.Reader
+
+	output, err := os.Create(videoPath)
+	if err != nil {
+		return fmt.Errorf("GoTube: Failed to create video file: %v", err)
+	}
+	defer output.Close()
+
+	// Create some random input data.
+	src := bytes.NewBufferString(strings.Repeat("Some random input data", 1000))
+	_ = &PassThru{Reader: src}
+
+	_, err = io.Copy(output, body)
+
+	return nil
 }
 
 func download(URLs []string) error {
