@@ -7,7 +7,6 @@ builds:
       - linux
       - windows
       - darwin
-      - macos
     goarch:
       - amd64
       - 386
